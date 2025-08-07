@@ -1,6 +1,12 @@
 
 # chibi-lisp
 
+<p align="center">
+    <img src="lambda.svg" alt="lambda" width="120">
+</p>
+
+C言語で実装された、小規模なLispインタプリタ処理系です。
+
 ## 🎯 目標
 
 小型のLispインタプリタをC言語で自作する。
