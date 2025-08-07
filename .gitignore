@@ -1,0 +1,30 @@
+# ビルド生成物
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.out
+*.a
+*.lib
+
+# バックアップファイル
+*~
+*.bak
+*.swp
+
+# ディレクトリ
+/build/
+/bin/
+/dist/
+/Debug/
+/Release/
+
+# IDE・エディタ固有
+.vscode/
+.idea/
+*.code-workspace
+
+# OS固有
+.DS_Store
+Thumbs.db
