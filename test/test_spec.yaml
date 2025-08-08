@@ -1,0 +1,106 @@
+# test_spec.yaml
+tests:
+  #------------------------------------------
+  # 字句解析（Tokenizer）
+  #------------------------------------------
+  - name: "トークン分割（単純な式）"
+    description: "(+ 1 2) をトークンに分割できる"
+    steps:
+      - input: "(+ 1 2)"
+        function: "tokenizer"
+    expected:
+      tokens: ["(", "+", "1", "2", ")"]
+
+  - name: "ネストしたS式のトークン分割"
+    description: "(* (+ 1 2) 3) のトークン分割"
+    steps:
+      - input: "(* (+ 1 2) 3)"
+        function: "tokenizer"
+    expected:
+      tokens: ["(", "*", "(", "+", "1", "2", ")", "3", ")"]
+
+  #------------------------------------------
+  # パーサー（Parser）
+  #------------------------------------------
+  - name: "単純な加算式のAST構築"
+    description: "(+ 1 2) をASTに変換"
+    steps:
+      - input: "(+ 1 2)"
+        function: "parser"
+    expected:
+      ast: ["+", 1, 2]
+
+  - name: "ネストしたAST構築"
+    description: "(* (+ 1 2) 3) をASTに変換"
+    steps:
+      - input: "(* (+ 1 2) 3)"
+        function: "parser"
+    expected:
+      ast: ["*", ["+", 1, 2], 3]
+
+  #------------------------------------------
+  # 評価器（Eval）
+  #------------------------------------------
+  - name: "加算の評価"
+    description: "(+ 1 2) の評価結果が 3 になる"
+    steps:
+      - input: "(+ 1 2)"
+        function: "eval"
+    expected:
+      result: 3
+
+  - name: "四則演算の組み合わせ"
+    description: "(* (+ 1 2) (- 5 3)) の結果が 6 になる"
+    steps:
+      - input: "(* (+ 1 2) (- 5 3))"
+        function: "eval"
+    expected:
+      result: 6
+
+  #------------------------------------------
+  # 組み込み関数
+  #------------------------------------------
+  - name: "リスト生成"
+    description: "(list 1 2 3) の結果が (1 2 3) になる"
+    steps:
+      - input: "(list 1 2 3)"
+        function: "eval"
+    expected:
+      result: [1, 2, 3]
+
+  - name: "car関数"
+    description: "(car (list 1 2 3)) の結果が 1 になる"
+    steps:
+      - input: "(car (list 1 2 3))"
+        function: "eval"
+    expected:
+      result: 1
+
+  - name: "cdr関数"
+    description: "(cdr (list 1 2 3)) の結果が (2 3) になる"
+    steps:
+      - input: "(cdr (list 1 2 3))"
+        function: "eval"
+    expected:
+      result: [2, 3]
+
+  #------------------------------------------
+  # 変数定義・ラムダ
+  #------------------------------------------
+  - name: "変数定義と参照"
+    description: "(define x 42) の後に x を評価すると 42 になる"
+    steps:
+      - input: "(define x 42)"
+        function: "eval"
+      - input: "x"
+        function: "eval"
+    expected:
+      result: 42
+
+  - name: "ラムダ関数の定義と呼び出し"
+    description: "((lambda (a b) (+ a b)) 3 4) の結果が 7 になる"
+    steps:
+      - input: "((lambda (a b) (+ a b)) 3 4)"
+        function: "eval"
+    expected:
+      result: 7
