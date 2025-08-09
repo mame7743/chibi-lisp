@@ -1,23 +1,30 @@
-#ifndef __TOKEN_H__
-#define __TOKEN_H__
+#ifndef __TOKENIZER_H__
+#define __TOKENIZER_H__
 
 #include <stdint.h>
 #include <stddef.h>
 
 typedef enum {
-    TOKEN_TYPE_NONE = 0,
-    TOKEN_TYPE_INTEGER,
-    TOKEN_TYPE_STRING,
-    TOKEN_TYPE_FLOAT,
-    TOKEN_TYPE_BOOLEAN,
-    TOKEN_TYPE_CUSTOM
-} TokenType;
+    TOKEN_LPAREN = 0,  // (
+    TOKEN_RPAREN,      // )
+    TOKEN_SYMBOL,      // シンボル
+    TOKEN_NUMBER,      // 数値
+    TOKEN_PLUS,        // +
+    TOKEN_ASTERISK,    // *
+} TokenKind;
 
 typedef struct {
-    TokenType type;  // Type of the token
-    size_t length; // Length of the token data
-    char *literal; // Pointer to the token data
-    Token *next; // Pointer to the next token in the list
+    TokenKind kind;  // Type of the token
+    char* value;     // セミコロンを追加
 } Token;
 
-#endif // __TOKEN_H__
+typedef struct {
+    size_t size;
+    Token* tokens;
+} TokenArray;
+
+// 関数宣言
+TokenArray* tokenize(const char* input);
+void free_token_array(TokenArray* tokens);
+
+#endif  // __TOKENIZER_H__
