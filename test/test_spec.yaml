@@ -1,6 +1,32 @@
 # test_spec.yaml
 tests:
   #------------------------------------------
+  # ヒープ管理
+  #------------------------------------------
+  - name: "ヒープ初期化"
+    description: "heap_init() が正常に動作する"
+    steps:
+      - function: "heap_init"
+    expected:
+      result: "Heap initialized"
+
+  - name: "メモリ割り当て"
+    description: "heap_alloc() でメモリを割り当てる"
+    steps:
+      - function: "heap_alloc"
+        args: [100]
+    expected:
+      result: "Memory allocated"
+
+  - name: "メモリ解放"
+    description: "heap_free() でメモリを解放する"
+    steps:
+      - function: "heap_free"
+        args: ["ptr1"]
+    expected:
+      result: "Memory freed"
+
+  #------------------------------------------
   # 字句解析（Tokenizer）
   #------------------------------------------
   - name: "トークン分割（単純な式）"
@@ -103,4 +129,61 @@ tests:
       - input: "((lambda (a b) (+ a b)) 3 4)"
         function: "eval"
     expected:
-      result: 7
+      result: 7  #------------------------------------------
+  # ヒープ管理
+  #------------------------------------------
+  - name: "基本的なメモリ確保"
+    description: "100バイトのメモリを確保できる"
+    steps:
+      - input: 100
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+
+  - name: "複数メモリブロックの確保"
+    description: "異なるサイズのメモリを複数確保できる"
+    steps:
+      - input: 50
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+      - input: 100
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+      - input: 200
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+
+  - name: "メモリ解放と再確保"
+    description: "メモリを解放した後、同じサイズを再確保できる"
+    steps:
+      - input: 100
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+      - input: "previous_ptr"
+        function: "heap_free"
+        expected:
+          result: "success"
+      - input: 100
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+
+  - name: "ゼロサイズ確保の拒否"
+    description: "サイズ0のメモリ確保は失敗する"
+    steps:
+      - input: 0
+        function: "heap_alloc"
+        expected:
+          result: "null"
+
+  - name: "大きすぎるサイズ確保の拒否"
+    description: "ヒープサイズを超える確保は失敗する"
+    steps:
+      - input: 3000
+        function: "heap_alloc"
+        expected:
+          result: "null"
