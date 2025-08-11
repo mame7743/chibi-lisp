@@ -6,68 +6,116 @@
 #include "heap.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
+
+bool is_whitespace(char c) {
+    return c == ' ' || c == '\n' || c == '\t';
+}
+
+bool is_digit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+bool is_symbol_char(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+}
 
 TokenArray* tokenize(const char* input) {
-    if(strncmp("(+ 1 2)", input, 7) == 0){
-        TokenArray* tokens = heap_alloc(sizeof(TokenArray));
-        tokens->size = 5;
-        tokens->tokens     = heap_alloc(sizeof(Token) * 5);
 
-        tokens->tokens[0].kind = TOKEN_LPAREN;
-        tokens->tokens[0].value = heap_alloc(strlen("(") + 1);
-        strcpy(tokens->tokens[0].value, "(");
-        tokens->tokens[1].kind  = TOKEN_PLUS;
-        tokens->tokens[1].value = heap_alloc(strlen("+") + 1);
-        strcpy(tokens->tokens[1].value, "+");
-        tokens->tokens[2].kind  = TOKEN_NUMBER;
-        tokens->tokens[2].value = heap_alloc(strlen("1") + 1);
-        strcpy(tokens->tokens[2].value, "1");
-        tokens->tokens[3].kind  = TOKEN_NUMBER;
-        tokens->tokens[3].value = heap_alloc(strlen("2") + 1);
-        strcpy(tokens->tokens[3].value, "2");
-        tokens->tokens[4].kind  = TOKEN_RPAREN;
-        tokens->tokens[4].value = heap_alloc(strlen(")") + 1);
-        strcpy(tokens->tokens[4].value, ")");
+    TokenArray *tokens = heap_alloc(sizeof(TokenArray));
+    Token token;
 
-        return tokens;
+    if (tokens == NULL) {
+        return NULL;  // メモリ割り当て失敗
     }
 
-    if (strncmp("(* (+ 1 2) 3)", input, 13) == 0) {
-        TokenArray* tokens = heap_alloc(sizeof(TokenArray));
-        tokens->size = 9;
-        tokens->tokens = heap_alloc(sizeof(Token) * 9);
-
-        tokens->tokens[0].kind = TOKEN_LPAREN;
-        tokens->tokens[0].value = heap_alloc(strlen("(") + 1);
-        strcpy(tokens->tokens[0].value, "(");
-        tokens->tokens[1].kind = TOKEN_ASTERISK;
-        tokens->tokens[1].value = heap_alloc(strlen("*") + 1);
-        strcpy(tokens->tokens[1].value, "*");
-        tokens->tokens[2].kind = TOKEN_LPAREN;
-        tokens->tokens[2].value = heap_alloc(strlen("(") + 1);
-        strcpy(tokens->tokens[2].value, "(");
-        tokens->tokens[3].kind = TOKEN_PLUS;
-        tokens->tokens[3].value = heap_alloc(strlen("+") + 1);
-        strcpy(tokens->tokens[3].value, "+");
-        tokens->tokens[4].kind = TOKEN_NUMBER;
-        tokens->tokens[4].value = heap_alloc(strlen("1") + 1);
-        strcpy(tokens->tokens[4].value, "1");
-        tokens->tokens[5].kind = TOKEN_NUMBER;
-        tokens->tokens[5].value = heap_alloc(strlen("2") + 1);
-        strcpy(tokens->tokens[5].value, "2");
-        tokens->tokens[6].kind = TOKEN_RPAREN;
-        tokens->tokens[6].value = heap_alloc(strlen(")") + 1);
-        strcpy(tokens->tokens[6].value, ")");
-        tokens->tokens[7].kind = TOKEN_NUMBER;
-        tokens->tokens[7].value = heap_alloc(strlen("3") + 1);
-        strcpy(tokens->tokens[7].value, "3");
-        tokens->tokens[8].kind = TOKEN_RPAREN;
-        tokens->tokens[8].value = heap_alloc(strlen(")") + 1);
-        strcpy(tokens->tokens[8].value, ")");
-
-        return tokens;
+    // トークンの初期化
+    tokens->size = 0;
+    tokens->tokens = heap_alloc(sizeof(Token) * 10);  // 初期サイズ
+    if (tokens->tokens == NULL) {
+        heap_free(tokens);
+        return NULL;
     }
 
+    const char *p = input;
+    while (*p) {
+        // 空白をスキップ
+        while (is_whitespace(*p)) {
+            p++;
+        }
+        if (*p == '\0') {
+            break;  // 文字列の終端
+        }
+
+        // トークンの種類を判定
+        if (*p == '(') {
+            token.kind = TOKEN_LPAREN;
+            token.value = heap_alloc(2);  // '(' と '\0'
+            if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+            strcpy(token.value, "(");
+            p++;
+        }
+        else if (*p == ')') {
+            token.kind = TOKEN_RPAREN;
+            token.value = heap_alloc(2);  // ')' と '\0'
+            if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+            token.value[0] = ')';
+            token.value[1] = '\0';
+            p++;
+        }
+        else if (is_digit(*p)) {
+            token.kind = TOKEN_NUMBER;
+            const char *start = p;
+            while (is_digit(*p)) p++;
+            size_t length = p - start;
+            token.value = heap_alloc(length + 1);  // 数値と '\0'
+            if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+            strncpy(token.value, start, length);
+            token.value[length] = '\0';
+        }
+        else if (*p == '+') {
+            token.kind = TOKEN_PLUS;
+            token.value = heap_alloc(2);  // '+' と '\0'
+            if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+            token.value[0] = '+';
+            token.value[1] = '\0';
+            p++;
+        }
+        else if (*p == '*') {
+            token.kind = TOKEN_ASTERISK;
+            token.value = heap_alloc(2);  // '*' と '\0'
+            if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+            token.value[0] = '*';
+            token.value[1] = '\0';
+            p++;
+        }
+        else if (is_symbol_char(*p)) {
+            // シンボルとして扱う
+            token.kind = TOKEN_SYMBOL;
+            const char *start = p;
+            while (is_symbol_char(*p)) p++;
+            size_t length = p - start;
+            token.value = heap_alloc(length + 1);  // シンボルと '\0'
+            if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+            strncpy(token.value, start, length);
+            token.value[length] = '\0';
+        }
+        else {
+            // 未知の文字はスキップ
+            p++;
+            continue;
+        }
+
+        // トークンを配列に追加
+        tokens->tokens[tokens->size] = token;
+        tokens->size++;
+    }
+
+    return tokens;
+
+ERROR:
+    heap_free(tokens->tokens);
+    heap_free(tokens);
     return NULL;
 }
 
