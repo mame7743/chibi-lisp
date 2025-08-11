@@ -187,3 +187,82 @@ tests:
         function: "heap_alloc"
         expected:
           result: "null"
+
+  #------------------------------------------
+  # ハッシュマップ（HashMap）
+  #------------------------------------------
+  - name: "基本的なキー・バリューの設定と取得"
+    description: "文字列キーと値の設定・取得ができる"
+    steps:
+      - input: {"key": "name", "value": "Alice"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: "name"
+        function: "hashmap_get"
+        expected:
+          result: "Alice"
+
+  - name: "複数のキー・バリューペアの管理"
+    description: "複数のキー・バリューペアを管理できる"
+    steps:
+      - input: {"key": "age", "value": "25"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: {"key": "city", "value": "Tokyo"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: "age"
+        function: "hashmap_get"
+        expected:
+          result: "25"
+      - input: "city"
+        function: "hashmap_get"
+        expected:
+          result: "Tokyo"
+
+  - name: "存在しないキーの取得"
+    description: "存在しないキーを取得するとNULLが返る"
+    steps:
+      - input: "nonexistent"
+        function: "hashmap_get"
+        expected:
+          result: "null"
+
+  - name: "キーの上書き"
+    description: "既存のキーの値を更新できる"
+    steps:
+      - input: {"key": "counter", "value": "1"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: {"key": "counter", "value": "2"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: "counter"
+        function: "hashmap_get"
+        expected:
+          result: "2"
+
+  - name: "ハッシュ衝突の処理"
+    description: "異なるキーが同じハッシュ値を持つ場合でも正しく動作する"
+    steps:
+      - input: {"key": "key1", "value": "value1"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: {"key": "key2", "value": "value2"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: "key1"
+        function: "hashmap_get"
+        expected:
+          result: "value1"
+      - input: "key2"
+        function: "hashmap_get"
+        expected:
+          result: "value2"
