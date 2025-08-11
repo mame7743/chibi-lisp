@@ -3,12 +3,12 @@
 
 #include <stddef.h>
 
-// ƒq[ƒvŠÖ”‚ÌéŒ¾
+// ãƒ’ãƒ¼ãƒ—é–¢æ•°ã®å®£è¨€
 void heap_init(void);
 void* heap_alloc(size_t size);
-void heap_free(void *ptr);  // sizeƒpƒ‰ƒ[ƒ^‚ğíœ
+void heap_free(void *ptr);  // sizeãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’å‰Šé™¤
 
-// ƒfƒoƒbƒOŠÖ”
+// ãƒ‡ãƒãƒƒã‚°é–¢æ•°
 void heap_dump(void);
 
 #endif // __HEAP_H__
