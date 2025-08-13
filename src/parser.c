@@ -1,106 +1,90 @@
-
 // parser.c
 // トークン列からS式（構文木）を構築するパーサの実装。
 
 #include "parser.h"
-#include "heap.h"
+#include "object.h"
+#include "object_pool.h"
 #include "tokenizer.h"
 #include <string.h>
 #include <stdlib.h>
+// 必要な構造体や定数の宣言
+#define DEPTH_MAX 256
 
-/* ---------- convenience constructors ---------- */
-static Obj* make_int(int32_t v) {
-    Obj* o = obj_alloc(OBJECT_INT);
-    if (!o) return NULL;
-    o->v.iv = v;
-    return o;
-}
-static Obj* make_string(const char* s) {
-    size_t len = strlen(s) + 1;
-    void* p    = heap_alloc(len);
-    if (!p) return NULL;
-    memcpy(p, s, len);
-    Obj* o = obj_alloc(OBJECT_STRING);
-    if (!o) {
-        heap_free(p);
-        return NULL;
-    }
-    o->v.s.strptr = p;
-    o->v.s.len    = (uint16_t)(len - 1);
-    return o;
-}
-static Obj* make_cons(Obj* car, Obj* cdr) {
-    Obj* o = obj_alloc(OBJECT_CONS);
-    if (!o) return NULL;
-    o->v.cons.car = car;
-    o->v.cons.cdr = cdr;
-    return o;
+Object *parse(const char *src) {
+    TokenArray *tokens = tokenize(src);
+    if (!tokens) return obj_nil;
+
+    size_t index = 0;
+    Object *result = parse_expression(tokens, &index);
+
+    free_token_array(tokens);
+    return result ? result : obj_nil;
 }
 
-// 単純なパース関数（テスト用）
-ASTNode* parse(TokenArray* tokens) {
-    if (tokens == NULL || tokens->size == 0) {
-        return NULL;
+// 式をパースする再帰関数
+Object *parse_expression(TokenArray *tokens, size_t *index) {
+    if (*index >= tokens->size) {
+        return obj_nil;
     }
 
-    // "(+ 1 2)" の場合のハードコードされたパース
-    if (tokens->size == 5 &&
-        tokens->tokens[0].kind == TOKEN_LPAREN &&
-        tokens->tokens[1].kind == TOKEN_PLUS &&
-        tokens->tokens[2].kind == TOKEN_NUMBER &&
-        tokens->tokens[3].kind == TOKEN_NUMBER &&
-        tokens->tokens[4].kind == TOKEN_RPAREN) {
+    Token token = tokens->tokens[*index];
 
-        ASTNode* plus = make_symbol("+");
-        ASTNode* num1 = make_number(atoi(tokens->tokens[2].value));
-        ASTNode* num2 = make_number(atoi(tokens->tokens[3].value));
+    switch (token.kind) {
+        case TOKEN_LPAREN: {
+            // リストの開始
+            (*index)++;
+            Object *head = obj_nil;
+            Object **current = &head;
 
-        // (+ 1 2) の構造を作成
-        ASTNode* args = make_cons(num1, make_cons(num2, NULL));
-        return make_cons(plus, args);
-    }
+            while (*index < tokens->size && tokens->tokens[*index].kind != TOKEN_RPAREN) {
+                Object *elem = parse_expression(tokens, index);
+                if (!elem) return obj_nil;
 
-    // "(* (+ 1 2) 3)" の場合
-    if (tokens->size == 9 &&
-        tokens->tokens[0].kind == TOKEN_LPAREN &&
-        tokens->tokens[1].kind == TOKEN_ASTERISK) {
-
-        ASTNode* mult = make_symbol("*");
-
-        // 内側の (+ 1 2) を作成
-        ASTNode* plus = make_symbol("+");
-        ASTNode* num1 = make_number(atoi(tokens->tokens[4].value));
-        ASTNode* num2 = make_number(atoi(tokens->tokens[5].value));
-        ASTNode* inner_expr = make_cons(plus, make_cons(num1, make_cons(num2, NULL)));
-
-        // 外側の数値
-        ASTNode* num3 = make_number(atoi(tokens->tokens[7].value));
-
-        // (* (+ 1 2) 3) の構造を作成
-        ASTNode* args = make_cons(inner_expr, make_cons(num3, NULL));
-        return make_cons(mult, args);
-    }
-
-    return NULL;
-}
-
-// ASTノードのメモリ解放
-void free_ast(ASTNode* node) {
-    if (node == NULL) return;
-
-    switch (node->type) {
-        case AST_CONS:
-            free_ast(node->data.cons.car);
-            free_ast(node->data.cons.cdr);
-            break;
-        case AST_SYMBOL:
-            if (node->data.symbol != NULL) {
-                heap_free(node->data.symbol);
+                *current = make_cons(elem, obj_nil);
+                current = &((*current)->data.cons.cdr);
             }
-            break;
-        case AST_NUMBER:
-            // 数値は特に解放するものがない
-            break;
+
+            if (*index >= tokens->size || tokens->tokens[*index].kind != TOKEN_RPAREN) {
+                // 対応する閉じ括弧がない
+                return obj_nil;
+            }
+            (*index)++; // 閉じ括弧を消費
+            return head;
+        }
+
+        case TOKEN_SYMBOL: {
+            (*index)++;
+            return make_symbol(token.value);
+        }
+
+        case TOKEN_NUMBER: {
+            (*index)++;
+            return make_number(atoi(token.value));
+        }
+
+        case TOKEN_PLUS: {
+            (*index)++;
+            return make_symbol("+");
+        }
+
+        case TOKEN_MINUS: {
+            (*index)++;
+            return make_symbol("-");
+        }
+
+        case TOKEN_ASTERISK: {
+            (*index)++;
+            return make_symbol("*");
+        }
+
+        case TOKEN_SLASH: {
+            (*index)++;
+            return make_symbol("/");
+        }
+
+        default:
+            // 他のトークンは無視
+            (*index)++;
+            return obj_nil;
     }
-    heap_free(node);
 }

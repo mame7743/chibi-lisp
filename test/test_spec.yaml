@@ -1,6 +1,6 @@
 # test_spec.yaml
 # テストフレームワーク: Unity (lib/unity/src/unity.h)
-# テストランナー: Unity TEST_ASSERT_* マクロを使用
+# テストランナー: cmake test runner
 tests:
   #------------------------------------------
   # ヒープ管理

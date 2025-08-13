@@ -1,9 +1,7 @@
-
 // tokenizer.c
 // 入力文字列をトークン列に分割する字句解析の実装。
 
 #include "tokenizer.h"
-#include "heap.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -22,7 +20,7 @@ bool is_symbol_char(char c) {
 
 TokenArray* tokenize(const char* input) {
 
-    TokenArray *tokens = heap_alloc(sizeof(TokenArray));
+    TokenArray *tokens = malloc(sizeof(TokenArray));
     Token token;
 
     if (tokens == NULL) {
@@ -31,9 +29,9 @@ TokenArray* tokenize(const char* input) {
 
     // トークンの初期化
     tokens->size = 0;
-    tokens->tokens = heap_alloc(sizeof(Token) * 10);  // 初期サイズ
+    tokens->tokens = malloc(sizeof(Token) * 10);  // 初期サイズ
     if (tokens->tokens == NULL) {
-        heap_free(tokens);
+        free(tokens);
         return NULL;
     }
 
@@ -50,14 +48,14 @@ TokenArray* tokenize(const char* input) {
         // トークンの種類を判定
         if (*p == '(') {
             token.kind = TOKEN_LPAREN;
-            token.value = heap_alloc(2);  // '(' と '\0'
+            token.value = malloc(2);  // '(' と '\0'
             if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
             strcpy(token.value, "(");
             p++;
         }
         else if (*p == ')') {
             token.kind = TOKEN_RPAREN;
-            token.value = heap_alloc(2);  // ')' と '\0'
+            token.value = malloc(2);  // ')' と '\0'
             if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
             token.value[0] = ')';
             token.value[1] = '\0';
@@ -68,24 +66,40 @@ TokenArray* tokenize(const char* input) {
             const char *start = p;
             while (is_digit(*p)) p++;
             size_t length = p - start;
-            token.value = heap_alloc(length + 1);  // 数値と '\0'
+            token.value = malloc(length + 1);  // 数値と '\0'
             if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
             strncpy(token.value, start, length);
             token.value[length] = '\0';
         }
         else if (*p == '+') {
             token.kind = TOKEN_PLUS;
-            token.value = heap_alloc(2);  // '+' と '\0'
+            token.value = malloc(2);  // '+' と '\0'
             if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
             token.value[0] = '+';
             token.value[1] = '\0';
             p++;
         }
+        else if (*p == '-') {
+            token.kind = TOKEN_MINUS;
+            token.value = malloc(2);  // '-' と '\0'
+            if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+            token.value[0] = '-';
+            token.value[1] = '\0';
+            p++;
+        }
         else if (*p == '*') {
             token.kind = TOKEN_ASTERISK;
-            token.value = heap_alloc(2);  // '*' と '\0'
+            token.value = malloc(2);  // '*' と '\0'
             if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
             token.value[0] = '*';
+            token.value[1] = '\0';
+            p++;
+        }
+        else if (*p == '/') {
+            token.kind = TOKEN_SLASH;
+            token.value = malloc(2);  // '/' と '\0'
+            if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+            token.value[0] = '/';
             token.value[1] = '\0';
             p++;
         }
@@ -95,7 +109,7 @@ TokenArray* tokenize(const char* input) {
             const char *start = p;
             while (is_symbol_char(*p)) p++;
             size_t length = p - start;
-            token.value = heap_alloc(length + 1);  // シンボルと '\0'
+            token.value = malloc(length + 1);  // シンボルと '\0'
             if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
             strncpy(token.value, start, length);
             token.value[length] = '\0';
@@ -114,8 +128,8 @@ TokenArray* tokenize(const char* input) {
     return tokens;
 
 ERROR:
-    heap_free(tokens->tokens);
-    heap_free(tokens);
+    free(tokens->tokens);
+    free(tokens);
     return NULL;
 }
 
@@ -126,13 +140,13 @@ void free_token_array(TokenArray* tokens) {
     // 各トークンの値文字列を解放
     for (int i = 0; i < tokens->size; i++) {
         if (tokens->tokens[i].value != NULL) {
-            heap_free(tokens->tokens[i].value);
+            free(tokens->tokens[i].value);
         }
     }
 
     // トークン配列を解放
-    heap_free(tokens->tokens);
+    free(tokens->tokens);
 
     // TokenArray構造体を解放
-    heap_free(tokens);
+    free(tokens);
 }

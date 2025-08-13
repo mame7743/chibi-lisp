@@ -10,7 +10,9 @@ typedef enum {
     TOKEN_SYMBOL,      // シンボル
     TOKEN_NUMBER,      // 数値
     TOKEN_PLUS,        // +
+    TOKEN_MINUS,       // -
     TOKEN_ASTERISK,    // *
+    TOKEN_SLASH,       // /
 } TokenKind;
 
 typedef struct {
