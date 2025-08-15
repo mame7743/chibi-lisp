@@ -1,23 +1,35 @@
+// heap.c - Variable-length data heap management
+#include "heap.h"
+#include "chibi_lisp.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdbool.h>
-#include <stdio.h>  // printfのために追加
-#include "heap.h"
+#include <stdio.h>
 
-#define HEAP_SIZE 2048
-#define CHUNK_SIZE 32
+//------------------------------------------
+// ヒープ設定
+//------------------------------------------
 #define CHUNK_COUNT (HEAP_SIZE / CHUNK_SIZE)
 
+//------------------------------------------
+// ヒープデータ
+//------------------------------------------
 static uint8_t heap[HEAP_SIZE];
 static uint8_t allocation_bitmap[CHUNK_COUNT]; // 1 = allocated, 0 = free
 static uint8_t size_info[CHUNK_COUNT]; // allocated blockのサイズ(chunks単位)
 
+//------------------------------------------
+// ヒープ初期化
+//------------------------------------------
 void heap_init(void) {
     memset(allocation_bitmap, 0, CHUNK_COUNT);
     memset(size_info, 0, CHUNK_COUNT);
 }
 
+//------------------------------------------
+// メモリ割り当て
+//------------------------------------------
 void *heap_alloc(size_t size) {
     // サイズ0の場合はNULLを返す
     if (size == 0) {
@@ -25,11 +37,11 @@ void *heap_alloc(size_t size) {
     }
 
     int needed = (size + CHUNK_SIZE - 1) / CHUNK_SIZE;
-    
+
     // 連続した空きチャンクを探す
     for (int i = 0; i <= CHUNK_COUNT - needed; i++) {
         bool ok = true;
-        
+
         // 必要な数のチャンクが空きかチェック
         for (int j = 0; j < needed; j++) {
             if (allocation_bitmap[i + j] != 0) {
@@ -37,7 +49,7 @@ void *heap_alloc(size_t size) {
                 break;
             }
         }
-        
+
         if (ok) {
             // 見つかったチャンクを割り当て
             for (int j = 0; j < needed; j++) {
@@ -45,83 +57,66 @@ void *heap_alloc(size_t size) {
             }
             // 先頭チャンクにサイズ情報を記録
             size_info[i] = needed;
-            
+
             return &heap[i * CHUNK_SIZE];
         }
     }
-    
+
     return NULL;  // メモリ不足
 }
 
+//------------------------------------------
+// メモリ解放
+//------------------------------------------
 void heap_free(void *ptr) {
     // NULLポインタチェック
     if (ptr == NULL) return;
-    
+
     // ヒープ範囲内かチェック
-    if ((uint8_t*)ptr < heap || (uint8_t*)ptr >= heap + HEAP_SIZE) {
-        printf("WARNING: heap_free called with pointer outside heap range: %p\n", ptr);
-        return;
+    uint8_t *byte_ptr = (uint8_t *)ptr;
+    if (byte_ptr < heap || byte_ptr >= heap + HEAP_SIZE) {
+        return; // 範囲外
     }
-    
-    int index = ((uint8_t *)ptr - heap) / CHUNK_SIZE;
-    
-    // インデックス範囲チェック
-    if (index < 0 || index >= CHUNK_COUNT) {
-        printf("WARNING: heap_free called with invalid index: %d\n", index);
-        return;
+
+    // チャンクインデックスを計算
+    int chunk_index = (byte_ptr - heap) / CHUNK_SIZE;
+    if (chunk_index < 0 || chunk_index >= CHUNK_COUNT) {
+        return; // 範囲外
     }
-    
-    // 割り当て済みかチェック
-    if (allocation_bitmap[index] == 0) {
-        printf("WARNING: heap_free called on already freed chunk: %d\n", index);
-        return;
+
+    // 割り当てられているかチェック
+    if (allocation_bitmap[chunk_index] == 0) {
+        return; // 既に解放済み
     }
-    
+
     // サイズ情報を取得
-    uint8_t count = size_info[index];
-    if (count == 0) {
-        printf("WARNING: heap_free called on chunk with no size info: %d\n", index);
-        return;
+    int chunks_to_free = size_info[chunk_index];
+    if (chunks_to_free <= 0 || chunks_to_free > CHUNK_COUNT) {
+        chunks_to_free = 1; // 安全策として最低1チャンク解放
     }
-    
-    // 割り当てを解除
-    for (int i = 0; i < count; i++) {
-        allocation_bitmap[index + i] = 0;
-    }
-    
-    // サイズ情報をクリア
-    size_info[index] = 0;
-}
 
-void heap_dump(void) {
-    printf("Heap dump:\n");
-    for (int i = 0; i < CHUNK_COUNT; i++) {
-        if (allocation_bitmap[i] == 0) {
-            printf("Chunk %d: Free\n", i);
-        } else {
-            if (size_info[i] > 0) {
-                printf("Chunk %d: Allocated block start (%d chunks, %d bytes)\n", 
-                       i, size_info[i], size_info[i] * CHUNK_SIZE);
-            } else {
-                printf("Chunk %d: Allocated (continuation)\n", i);
-            }
-        }
+    // チャンクを解放
+    for (int i = 0; i < chunks_to_free && (chunk_index + i) < CHUNK_COUNT; i++) {
+        allocation_bitmap[chunk_index + i] = 0;
+        size_info[chunk_index + i] = 0;
     }
 }
 
-// 統計関数の実装
+//------------------------------------------
+// ヒープ統計取得
+//------------------------------------------
 size_t heap_total_size(void) {
     return HEAP_SIZE;
 }
 
 size_t heap_used_size(void) {
-    size_t used = 0;
+    size_t used_chunks = 0;
     for (int i = 0; i < CHUNK_COUNT; i++) {
-        if (allocation_bitmap[i] == 1) {
-            used += CHUNK_SIZE;
+        if (allocation_bitmap[i] != 0) {
+            used_chunks++;
         }
     }
-    return used;
+    return used_chunks * CHUNK_SIZE;
 }
 
 size_t heap_free_size(void) {
@@ -129,71 +124,81 @@ size_t heap_free_size(void) {
 }
 
 size_t heap_allocated_chunks(void) {
-    size_t allocated = 0;
+    size_t count = 0;
     for (int i = 0; i < CHUNK_COUNT; i++) {
-        if (allocation_bitmap[i] == 1) {
-            allocated++;
+        if (allocation_bitmap[i] != 0 && size_info[i] > 0) {
+            count++;
         }
     }
-    return allocated;
+    return count;
 }
 
 size_t heap_free_chunks(void) {
-    size_t free_chunks = 0;
+    size_t used_chunks = 0;
     for (int i = 0; i < CHUNK_COUNT; i++) {
-        if (allocation_bitmap[i] == 0) {
-            free_chunks++;
+        if (allocation_bitmap[i] != 0) {
+            used_chunks++;
         }
     }
-    return free_chunks;
+    return CHUNK_COUNT - used_chunks;
 }
 
-// デバッグ用: ヒープの整合性をチェック
-bool heap_validate(void) {
-    bool valid = true;
-    
+//------------------------------------------
+// デバッグ機能
+//------------------------------------------
+void heap_dump(void) {
+    printf("Heap Dump:\n");
+    printf("  Total size: %zu bytes (%d chunks)\n", (size_t)HEAP_SIZE, CHUNK_COUNT);
+    printf("  Used size:  %zu bytes\n", heap_used_size());
+    printf("  Free size:  %zu bytes\n", heap_free_size());
+    printf("  Chunk size: %d bytes\n", CHUNK_SIZE);
+
+    printf("Allocation bitmap: ");
     for (int i = 0; i < CHUNK_COUNT; i++) {
-        if (allocation_bitmap[i] == 1 && size_info[i] > 0) {
-            // ブロックの先頭チャンク
-            int size = size_info[i];
-            
-            // ブロックのサイズが範囲内かチェック
-            if (i + size > CHUNK_COUNT) {
-                printf("ERROR: Block at %d extends beyond heap (size %d)\n", i, size);
-                valid = false;
-                continue;
-            }
-            
-            // ブロック内の全チャンクが割り当て済みかチェック
-            for (int j = 1; j < size; j++) {
-                if (allocation_bitmap[i + j] != 1) {
-                    printf("ERROR: Block at %d has unallocated chunk at %d\n", i, i + j);
-                    valid = false;
-                }
-                if (size_info[i + j] != 0) {
-                    printf("ERROR: Block continuation at %d has non-zero size info\n", i + j);
-                    valid = false;
-                }
-            }
-        } else if (allocation_bitmap[i] == 1 && size_info[i] == 0) {
-            // 継続チャンク（size_info[i] == 0）
-            // 前のチャンクがブロックの一部かチェック
-            bool found_start = false;
-            for (int j = i - 1; j >= 0; j--) {
-                if (allocation_bitmap[j] == 1 && size_info[j] > 0) {
-                    if (j + size_info[j] > i) {
-                        found_start = true;
-                        break;
+        printf("%d", allocation_bitmap[i] ? 1 : 0);
+        if ((i + 1) % 8 == 0) printf(" ");
+    }
+    printf("\n");
+
+    printf("Size info: ");
+    for (int i = 0; i < CHUNK_COUNT; i++) {
+        printf("%2d ", size_info[i]);
+        if ((i + 1) % 8 == 0) printf("\n           ");
+    }
+    printf("\n");
+
+    // 割り当てられたブロックの詳細
+    printf("Allocated blocks:\n");
+    for (int i = 0; i < CHUNK_COUNT; i++) {
+        if (allocation_bitmap[i] != 0 && size_info[i] > 0) {
+            printf("  Block at chunk %d: %d chunks (%d bytes)\n",
+                   i, size_info[i], size_info[i] * CHUNK_SIZE);
+        }
+    }
+}
+
+void heap_clear(void) {
+    memset(allocation_bitmap, 0, CHUNK_COUNT);
+    memset(size_info, 0, CHUNK_COUNT);
+}
+
+//------------------------------------------
+// ヒープ検証機能
+//------------------------------------------
+bool heap_validate(void) {
+    for (int i = 0; i < CHUNK_COUNT; i++) {
+        if (allocation_bitmap[i] != 0) {
+            // 割り当て済みチャンクの場合、サイズ情報が妥当かチェック
+            if (size_info[i] > 0) {
+                // 先頭チャンクの場合、連続するチャンクもチェック
+                for (int j = 1; j < size_info[i] && (i + j) < CHUNK_COUNT; j++) {
+                    if (allocation_bitmap[i + j] == 0) {
+                        printf("Heap validation error: chunk %d should be allocated\n", i + j);
+                        return false;
                     }
                 }
-                if (allocation_bitmap[j] == 0) break;
-            }
-            if (!found_start) {
-                printf("ERROR: Orphaned continuation chunk at %d\n", i);
-                valid = false;
             }
         }
     }
-    
-    return valid;
+    return true;
 }
