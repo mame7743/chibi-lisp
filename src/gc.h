@@ -1,10 +1,9 @@
 #ifndef GC_H
 #define GC_H
 
+#include "chibi_lisp.h"
 #include "object.h"
 #include "object_pool.h"
-
-#define MAX_ROOTS 64
 
 //------------------------------------------
 // ガベージコレクション

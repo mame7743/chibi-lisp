@@ -1,11 +1,11 @@
 #ifndef OBJECT_POOL_H
 #define OBJECT_POOL_H
 
+#include "chibi_lisp.h"
 #include "object.h"
 #include <stdint.h>
 #include <stddef.h>
 
-#define OBJECT_POOL_SIZE 1024
 #define BITMAP_SIZE ((OBJECT_POOL_SIZE + 7) / 8)  // ビットマップサイズ
 
 // 外部からアクセス可能なプールデータ（テスト用）
@@ -29,11 +29,6 @@ bool object_pool_is_allocated(int index);
 size_t object_pool_used_count(void);
 size_t object_pool_free_count(void);
 bool object_pool_is_valid(Object* obj);
-
-// ビットマップ操作（内部使用・テスト用）
-bool bitmap_get_bit(uint8_t* bitmap, int index);
-void bitmap_set_bit(uint8_t* bitmap, int index);
-void bitmap_clear_bit(uint8_t* bitmap, int index);
 
 // GCマーク操作
 bool object_pool_is_marked(int index);

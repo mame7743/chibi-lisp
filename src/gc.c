@@ -1,4 +1,6 @@
+// gc.c - Mark-and-sweep garbage collector
 #include "gc.h"
+#include "chibi_lisp.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -10,13 +12,6 @@ static size_t gc_root_count = 0;
 static size_t gc_collections = 0;
 static size_t gc_last_collected = 0;
 static size_t gc_total_collected = 0;
-
-//------------------------------------------
-// 外部参照（固定オブジェクト）
-//------------------------------------------
-extern Object* obj_nil;
-extern Object* obj_true;
-extern Object* obj_false;
 
 //------------------------------------------
 // GC初期化
@@ -55,40 +50,52 @@ void gc_remove_root(Object** root) {
 static void gc_mark_object(Object* obj) {
     if (!obj) return;
 
+    // GCマークスタック
+    Object* stack[MAX_GC_MARK_STACK];
+    size_t sp = 0;
+
     // プール内のオブジェクトかチェック
     if (!object_pool_is_valid(obj)) return;
 
-    int index = object_pool_get_index(obj);
-    if (index < 0 || object_pool_is_marked(index)) return;
+    stack[sp++] = obj;
 
-    // ビットマップでマーク
-    object_pool_set_mark(index);
+    while (sp > 0) {
+        Object* current = stack[--sp];
+        if (!current) continue;
 
-    // 子オブジェクトを再帰的にマーク
-    switch (obj->type) {
-        case OBJ_CONS:
-            gc_mark_object(obj->data.cons.car);
-            gc_mark_object(obj->data.cons.cdr);
-            break;
-        case OBJ_FUNCTION:
-        case OBJ_LAMBDA:
-            gc_mark_object(obj->data.function.params);
-            gc_mark_object(obj->data.function.body);
-            break;
-        case OBJ_NIL:
-        case OBJ_BOOL:
-        case OBJ_NUMBER:
-        case OBJ_STRING:
-        case OBJ_SYMBOL:
-            // プリミティブ型は子オブジェクトを持たない
-            break;
+        int index = object_pool_get_index(current);
+        if (index < 0 || object_pool_is_marked(index)) continue;
+
+        object_pool_set_mark(index);
+
+        switch (current->type) {
+            case OBJ_CONS:
+                if (current->data.cons.car) stack[sp++] = current->data.cons.car;
+                if (current->data.cons.cdr) stack[sp++] = current->data.cons.cdr;
+                break;
+            case OBJ_FUNCTION:
+            case OBJ_LAMBDA:
+                if (current->data.function.params) stack[sp++] = current->data.function.params;
+                if (current->data.function.body) stack[sp++] = current->data.function.body;
+                break;
+            case OBJ_NIL:
+            case OBJ_BOOL:
+            case OBJ_NUMBER:
+            case OBJ_STRING:
+            case OBJ_SYMBOL:
+            case OBJ_OPERATOR:
+            case OBJ_BUILTIN:
+            case OBJ_VOID:
+                // プリミティブ型は子オブジェクトを持たない
+                break;
+        }
     }
 }
 
 //------------------------------------------
 // ガベージコレクション実行
 //------------------------------------------
-void gc_collect(void) {
+void gc(void) {
     gc_collections++;
     gc_last_collected = 0;
 
@@ -101,10 +108,6 @@ void gc_collect(void) {
             gc_mark_object(*gc_roots[i]);
         }
     }
-
-    // 固定オブジェクトは常に生存（object_pool外なので何もしない）
-    // obj_nil, obj_true, obj_falseはstatic領域にあるため、
-    // ビットマップでのマークは不要
 
     // スイープフェーズ: マークされていないオブジェクトを回収
     for (int i = 0; i < OBJECT_POOL_SIZE; i++) {
@@ -160,4 +163,9 @@ void gc_dump_stats(void) {
     printf("  Last Collected: %zu objects\n", gc_last_collected);
     printf("  Total Collected: %zu objects\n", gc_total_collected);
     printf("  Root Count: %zu/%d\n", gc_root_count, MAX_ROOTS);
+}
+
+// gc_collect関数のエイリアス（ヘッダーとの整合性のため）
+void gc_collect(void) {
+    gc();
 }
