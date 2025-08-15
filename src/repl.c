@@ -6,6 +6,7 @@
 
 #include "object.h"
 #include "eval.h"  // 評価関数のインターフェース
+#include "gc.h"    // GC の明示呼び出し
 
 static void print_obj(Object* obj) {
     if (!obj) {
@@ -18,7 +19,7 @@ static void print_obj(Object* obj) {
             printf("nil");
             break;
         case OBJ_BOOL:
-            printf(obj->data.number ? "t" : "nil");
+            printf(obj == obj_true ? "t" : "nil");
             break;
         case OBJ_NUMBER:
             printf("%d", obj->data.number);
@@ -50,6 +51,12 @@ static void print_obj(Object* obj) {
         case OBJ_LAMBDA:
             printf("#<lambda>");
             break;
+        case OBJ_OPERATOR:
+            printf("%s", obj_operator_name(obj));
+            break;
+        case OBJ_VOID:
+            // voidは表示しない（この関数は呼ばれないはず）
+            break;
         default:
             printf("#<unknown-type-%d>", obj->type);
             break;
@@ -71,6 +78,7 @@ int main(int argc, char* argv[]) {
             printf("\nREPL Commands:\n");
             printf("  :quit          Exit the REPL\n");
             printf("  :mem           Show memory statistics\n");
+            printf("  :gc            Run garbage collection manually\n");
             return 0;
         }
     }
@@ -92,10 +100,22 @@ int main(int argc, char* argv[]) {
             evaluator_show_memory_stats();
             continue;
         }
+        if (strncmp(line, ":gc", 3) == 0) {
+            gc_collect();
+            printf("[GC done] total=%zu last=%zu collected=%zu\n",
+                   gc_total_collections(),
+                   gc_last_collected_count(),
+                   gc_total_collected_count());
+            continue;
+        }
 
         Object* res = eval_string(line);
-        print_obj(res);
-        printf("\n");
+        // OBJ_VOID型（print関数等の戻り値）の場合のみ表示を抑制
+        // 明示的なnilは表示する
+        if (res && res->type != OBJ_VOID) {
+            print_obj(res);
+            printf("\n");
+        }
     }
 
     evaluator_shutdown();
