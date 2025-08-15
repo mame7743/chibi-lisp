@@ -11,7 +11,8 @@ set(LISP_SOURCES
     src/tokenizer.c
     src/parser.c
     src/eval.c
-    src/heap.c)
+    src/heap.c
+    src/helper.c)
 
 # メインライブラリの作成
 add_library(chibi-lisp-lib ${LISP_SOURCES})
@@ -49,9 +50,14 @@ target_link_libraries(test_lexer PRIVATE chibi-lisp-lib unity)
 add_executable(test_heap test/test_heap.c)
 target_link_libraries(test_heap PRIVATE chibi-lisp-lib unity)
 
+# 真偽値テスト
+add_executable(test_boolean test/test_boolean.c)
+target_link_libraries(test_boolean PRIVATE chibi-lisp-lib unity)
+
 # テストの登録
 add_test(NAME test_object_system COMMAND test_object_system)
 add_test(NAME test_tokenizer COMMAND test_tokenizer)
 add_test(NAME test_parser COMMAND test_parser)
 add_test(NAME test_lexer COMMAND test_lexer)
 add_test(NAME test_heap COMMAND test_heap)
+add_test(NAME test_boolean COMMAND test_boolean)
