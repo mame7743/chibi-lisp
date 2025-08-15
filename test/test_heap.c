@@ -51,8 +51,9 @@ void test_heap_zero_size_allocation(void) {
 }
 
 void test_heap_large_allocation(void) {
-    // ヒープサイズを超える割り当て
-    void* ptr = heap_alloc(3000);  // HEAP_SIZE(2048)より大きい
+    // ヒープ全体サイズを超える割り当てを動的に計算
+    size_t too_large = heap_total_size() + 1;
+    void* ptr = heap_alloc(too_large);
     TEST_ASSERT_NULL(ptr);
 }
 

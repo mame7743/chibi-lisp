@@ -3,6 +3,7 @@
 #include "../src/object.h"
 #include "../src/object_pool.h"
 #include "../src/gc.h"
+#include "../src/helper.h" // bitmap_* ラッパー
 
 // テスト用のビットマップヘルパー
 // object_pool.cの内部データにアクセスするための外部宣言
