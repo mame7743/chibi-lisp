@@ -1,86 +1,323 @@
-
 // tokenizer.c
 // 入力文字列をトークン列に分割する字句解析の実装。
 
-#include "token.h"
+#include "tokenizer.h"
+#include "chibi_lisp.h"
+#include "heap.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
-// トークンを初期化する関数
-Token *new_token(TokenType type, const char *literal) {
-    Token *token = (Token *)calloc(1,sizeof(Token));
-    if (!token) {
-        return NULL; // メモリ割り当て失敗
-    }
+#define STR_EQUAL(src, dst) (strncmp((src), (dst), strlen(dst)) == 0 )
 
-    token->type = type;
-    token->length = strlen(literal);
-    token->literal = (char *)calloc(1,token->length + 1); // +1 for null terminator
-    if (!token->literal) {
-        free(literal);
-        return NULL; // メモリ割り当て失敗
-    }
-    token->next = NULL;
-
-    // リテラルをコピー
-    strcpy(token->literal, literal);
-    return token;
+bool is_whitespace(char c) {
+    return c == ' ' || c == '\n' || c == '\t';
 }
 
-// トークンを解放する関数
-void free_token(Token *token) {
-    if (token) {
-        free(token->literal);
-        free(token);
-    }
+bool is_digit(char c) {
+    return c >= '0' && c <= '9';
 }
 
-// トークンをリストに追加する関数
-Token* add_token(Token *head, Token *new_token) {
-    if (!head) {
-        return new_token; // リストが空なら新しいトークンを返す
-    }
-
-    Token *current = head;
-    while (current->next) {
-        current = current->next; // リストの最後まで移動
-    }
-    current->next = new_token; // 新しいトークンをリストの最後に追加
-    return head; // 変更されたリストの先頭を返す
+bool is_symbol_char(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '?' || c == '!' || c == '-' || c == '=' || c == '<' || c == '>';
 }
 
-Token* tokenize(const char *input) {
-    Token *head = NULL;
-    Token *current = NULL;
+TokenArray* tokenize(const char* input) {
 
-    Token head = {};
-    Token *cur = &head;
+    TokenArray *tokens = heap_alloc(sizeof(TokenArray));
+    Token token;
 
-    char str[256];
-    char *p = input;
+    if (tokens == NULL) {
+        return NULL;  // メモリ割り当て失敗
+    }
 
-    while (*p) {
+    // トークンの初期化
+    tokens->size = 0;
+    tokens->tokens = heap_alloc(sizeof(Token) * 10);  // 初期サイズ
+    if (tokens->tokens == NULL) {
+        heap_free(tokens);
+        return NULL;
+    }
 
-        // Skip whitespace
-        if(isspace(*p)){
-            p++;
-            continue;
+    const char *ch = input;
+    while (*ch) {
+        // 空白をスキップ
+        while (is_whitespace(*ch)) {
+            ch++;
+        }
+        if (*ch == '\0') {
+            break;  // 文字列の終端
         }
 
-        // Numeric token
-        if (isdigit(*p)) {
-            char *q = p++;
-            for (;;){
-                if (!isdigit(*p)) {
-                    break; // 数字以外の文字が来たら終了
-                }
-                p++;
+        if (*ch == ';') {
+            // コメント行は無視
+            while (*ch && *ch != '\n') {
+                ch++;
             }
-            strncpy(str, q, p - q);
-            tok = new_token(TOKEN_TYPE_INTEGER, str);
+            continue;  // 次のトークンへ
+        }
+
+        // トークンの種類を判定
+        switch (*ch) {
+            case '(':
+                token.kind = TOKEN_LPAREN;
+                token.value = heap_alloc(2);  // '(' と '\0'
+                if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                strcpy(token.value, "(");
+                ch++;
+                break;
+            case ')':
+                token.kind = TOKEN_RPAREN;
+                token.value = heap_alloc(2);  // ')' と '\0'
+                if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                token.value[0] = ')';
+                token.value[1] = '\0';
+                ch++;
+                break;
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                token.kind        = TOKEN_NUMBER;
+                const char *start = ch;
+                while (is_digit(*ch)) ch++;
+                size_t length = ch - start;
+                token.value   = heap_alloc(length + 1);  // 数値と '\0'
+                if (token.value == NULL) goto ERROR;     // メモリ割り当て失敗
+                strncpy(token.value, start, length);
+                token.value[length] = '\0';
+                break;
+            case '+':
+                token.kind = TOKEN_PLUS;
+                token.value = heap_alloc(2);  // '+' と '\0'
+                if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                token.value[0] = '+';
+                token.value[1] = '\0';
+                ch++;
+                break;
+            case '-':
+                token.kind = TOKEN_MINUS;
+                token.value = heap_alloc(2);  // '-' と '\0'
+                if (token.value == NULL) goto ERROR;  // メモリ割り当e失敗
+                token.value[0] = '-';
+                token.value[1] = '\0';
+                ch++;
+                break;
+            case '*':
+                token.kind = TOKEN_ASTERISK;
+                token.value = heap_alloc(2);  // '*' と '\0'
+                if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                token.value[0] = '*';
+                token.value[1] = '\0';
+                ch++;
+                break;
+            case '/':
+                token.kind = TOKEN_SLASH;
+                token.value = heap_alloc(2);  // '/' と '\0'
+                if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                token.value[0] = '/';
+                token.value[1] = '\0';
+                ch++;
+                break;
+            case '"':
+                // 文字列リテラル
+                token.kind = TOKEN_STRING;
+                {
+                    const char *str_start = ++ch;  // 開始クォートをスキップ
+                    while (*ch && *ch != '"') ch++;  // 終了クォートまで進む
+                    if (*ch != '"') goto ERROR;  // 閉じクォートがない
+                    size_t str_length = ch - str_start;
+                    token.value = heap_alloc(str_length + 1);
+                    if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                    strncpy(token.value, str_start, str_length);
+                    token.value[str_length] = '\0';
+                    ch++;  // 終了クォートをスキップ
+                }
+                break;
+            case '=':
+                token.kind = TOKEN_EQ;
+                token.value = heap_alloc(2);  // '=' と '\0'
+                if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                token.value[0] = '=';
+                token.value[1] = '\0';
+                ch++;
+                break;
+            case '>':
+                if (*(ch + 1) == '=') {
+                    token.kind = TOKEN_GTE;
+                    token.value = heap_alloc(3);  // ">=" と '\0'
+                    if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                    token.value[0] = '>';
+                    token.value[1] = '=';
+                    token.value[2] = '\0';
+                    ch += 2;  // ">=" をスキップ
+                } else {
+                    token.kind = TOKEN_GT;
+                    token.value = heap_alloc(2);  // '>' と '\0'
+                    if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                    token.value[0] = '>';
+                    token.value[1] = '\0';
+                    ch++;
+                }
+                break;
+            case '<':
+                if (*(ch + 1) == '=') {
+                    token.kind = TOKEN_LTE;
+                    token.value = heap_alloc(3);  // "<=" と '\0'
+                    if (token.value == NULL) goto ERROR;  // メモリ割り当   て失敗
+                    token.value[0] = '<';
+                    token.value[1] = '=';
+                    token.value[2] = '\0';
+                    ch += 2;  // "<=" をスキップ
+                } else {
+                    token.kind = TOKEN_LT;
+                    token.value = heap_alloc(2);  // '<' と '\0'
+                    if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                    token.value[0] = '<';
+                    token.value[1] = '\0';
+                    ch++;
+                }
+                break;
+            default:
+                if (is_symbol_char(*ch)) {
+                    // シンボルとして扱う
+                    const char *start = ch;
+                    while (is_symbol_char(*ch)) ch++;
+                    size_t length = ch - start;
+                    token.value = heap_alloc(length + 1);  // シンボルと '\0'
+                    if (token.value == NULL) goto ERROR;  // メモリ割り当て失敗
+                    strncpy(token.value, start, length);
+                    token.value[length] = '\0';
+
+                    // トークンの種類を判定
+                    if (STR_EQUAL(token.value, "lambda")) {
+                        token.kind = TOKEN_LAMBDA;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "if")) {
+                        token.kind = TOKEN_IF;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "quote")) {
+                        token.kind = TOKEN_QUOTE;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "nil")) {
+                        token.kind = TOKEN_NIL;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "t")) {
+                        token.kind = TOKEN_TRUE;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "define")) {
+                        token.kind = TOKEN_DEFINE;
+                        break;
+                    }
+                    if (STR_EQUAL(token.value, "set!")) {
+                        token.kind = TOKEN_SET;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "loop")) {
+                        token.kind = TOKEN_LOOP;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "dotimes")) {
+                        token.kind = TOKEN_DOTIMES;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "print")) {
+                        token.kind = TOKEN_PRINT;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "println")) {
+                        token.kind = TOKEN_PRINTLN;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "str")) {
+                        token.kind = TOKEN_STR;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "length")) {
+                        token.kind = TOKEN_LENGTH;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "bool?")) {
+                        token.kind = TOKEN_BOOLP;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "now")) {
+                        token.kind = TOKEN_NOW;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "sleep")) {
+                        token.kind = TOKEN_SLEEP;
+                        break;
+                    }
+
+                    if (STR_EQUAL(token.value, "time-diff")) {
+                        token.kind = TOKEN_TIME_DIFF;
+                        break;
+                    }
+
+                    token.kind = TOKEN_SYMBOL;
+
+                } else {
+                        // 未知の文字はスキップ
+                        ch++;
+                        continue;
+                }
+
+                break;
+        }
+
+        // トークンを配列に追加
+        tokens->tokens[tokens->size] = token;
+        tokens->size++;
+    }
+
+    return tokens;
+
+ERROR:
+    heap_free(tokens->tokens);
+    heap_free(tokens);
+    return NULL;
+}
+
+// メモリ解放関数を追加
+void free_token_array(TokenArray* tokens) {
+    if (tokens == NULL) return;
+
+    // 各トークンの値文字列を解放
+    for (int i = 0; i < tokens->size; i++) {
+        if (tokens->tokens[i].value != NULL) {
+            heap_free(tokens->tokens[i].value);
         }
     }
 
-    free(input_copy); // コピーした入力文字列を解放
-    return head; // トークンリストの先頭を返す
+    // トークン配列を解放
+    heap_free(tokens->tokens);
+
+    // TokenArray構造体を解放
+    heap_free(tokens);
 }

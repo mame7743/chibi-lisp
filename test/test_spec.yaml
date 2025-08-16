@@ -1,5 +1,33 @@
 # test_spec.yaml
+# テストフレームワーク: Unity (lib/unity/src/unity.h)
+# テストランナー: cmake test runner
 tests:
+  #------------------------------------------
+  # ヒープ管理
+  #------------------------------------------
+  - name: "ヒープ初期化"
+    description: "heap_init() が正常に動作する"
+    steps:
+      - function: "heap_init"
+    expected:
+      result: "Heap initialized"
+
+  - name: "メモリ割り当て"
+    description: "heap_alloc() でメモリを割り当てる"
+    steps:
+      - function: "heap_alloc"
+        args: [100]
+    expected:
+      result: "Memory allocated"
+
+  - name: "メモリ解放"
+    description: "heap_free() でメモリを解放する"
+    steps:
+      - function: "heap_free"
+        args: ["ptr1"]
+    expected:
+      result: "Memory freed"
+
   #------------------------------------------
   # 字句解析（Tokenizer）
   #------------------------------------------
@@ -103,4 +131,370 @@ tests:
       - input: "((lambda (a b) (+ a b)) 3 4)"
         function: "eval"
     expected:
-      result: 7
+      result: 7  #------------------------------------------
+  # ヒープ管理
+  #------------------------------------------
+  - name: "基本的なメモリ確保"
+    description: "100バイトのメモリを確保できる"
+    steps:
+      - input: 100
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+
+  - name: "複数メモリブロックの確保"
+    description: "異なるサイズのメモリを複数確保できる"
+    steps:
+      - input: 50
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+      - input: 100
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+      - input: 200
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+
+  - name: "メモリ解放と再確保"
+    description: "メモリを解放した後、同じサイズを再確保できる"
+    steps:
+      - input: 100
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+      - input: "previous_ptr"
+        function: "heap_free"
+        expected:
+          result: "success"
+      - input: 100
+        function: "heap_alloc"
+        expected:
+          result: "not_null"
+
+  - name: "ゼロサイズ確保の拒否"
+    description: "サイズ0のメモリ確保は失敗する"
+    steps:
+      - input: 0
+        function: "heap_alloc"
+        expected:
+          result: "null"
+
+  - name: "大きすぎるサイズ確保の拒否"
+    description: "ヒープサイズを超える確保は失敗する"
+    steps:
+      - input: 3000
+        function: "heap_alloc"
+        expected:
+          result: "null"
+
+  #------------------------------------------
+  # ハッシュマップ（HashMap）
+  #------------------------------------------
+  - name: "基本的なキー・バリューの設定と取得"
+    description: "文字列キーと値の設定・取得ができる"
+    steps:
+      - input: {"key": "name", "value": "Alice"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: "name"
+        function: "hashmap_get"
+        expected:
+          result: "Alice"
+
+  - name: "複数のキー・バリューペアの管理"
+    description: "複数のキー・バリューペアを管理できる"
+    steps:
+      - input: {"key": "age", "value": "25"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: {"key": "city", "value": "Tokyo"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: "age"
+        function: "hashmap_get"
+        expected:
+          result: "25"
+      - input: "city"
+        function: "hashmap_get"
+        expected:
+          result: "Tokyo"
+
+  - name: "存在しないキーの取得"
+    description: "存在しないキーを取得するとNULLが返る"
+    steps:
+      - input: "nonexistent"
+        function: "hashmap_get"
+        expected:
+          result: "null"
+
+  - name: "キーの上書き"
+    description: "既存のキーの値を更新できる"
+    steps:
+      - input: {"key": "counter", "value": "1"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: {"key": "counter", "value": "2"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: "counter"
+        function: "hashmap_get"
+        expected:
+          result: "2"
+
+  - name: "ハッシュ衝突の処理"
+    description: "異なるキーが同じハッシュ値を持つ場合でも正しく動作する"
+    steps:
+      - input: {"key": "key1", "value": "value1"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: {"key": "key2", "value": "value2"}
+        function: "hashmap_set"
+        expected:
+          result: "success"
+      - input: "key1"
+        function: "hashmap_get"
+        expected:
+          result: "value1"
+      - input: "key2"
+        function: "hashmap_get"
+        expected:
+          result: "value2"
+
+  #------------------------------------------
+  # Lispヒープ（LispHeap）
+  #------------------------------------------
+  - name: "Lispヒープの初期化"
+    description: "Lispヒープを初期化できる"
+    steps:
+      - input: null
+        function: "lisp_heap_init"
+        expected:
+          result: "success"
+
+  - name: "基本的なValue確保"
+    description: "Valueオブジェクトを確保できる"
+    steps:
+      - input: null
+        function: "lisp_heap_alloc"
+        expected:
+          result: "not_null"
+
+  - name: "複数のValue確保"
+    description: "複数のValueオブジェクトを確保できる"
+    steps:
+      - input: null
+        function: "lisp_heap_alloc"
+        expected:
+          result: "not_null"
+      - input: null
+        function: "lisp_heap_alloc"
+        expected:
+          result: "not_null"
+      - input: null
+        function: "lisp_heap_alloc"
+        expected:
+          result: "not_null"
+
+  - name: "Value解放と再利用"
+    description: "Valueを解放した後、再利用できる"
+    steps:
+      - input: null
+        function: "lisp_heap_alloc"
+        expected:
+          result: "not_null"
+      - input: "previous_value"
+        function: "lisp_heap_free"
+        expected:
+          result: "success"
+      - input: null
+        function: "lisp_heap_alloc"
+        expected:
+          result: "not_null"
+
+  - name: "ヒープ枯渇の処理"
+    description: "ヒープが満杯になった時にNULLを返す"
+    steps:
+      - input: 1025  # LISP_HEAP_SIZE + 1
+        function: "lisp_heap_alloc_many"
+        expected:
+          result: "null_at_limit"
+
+  - name: "整数Value作成"
+    description: "整数型のValueを作成できる"
+    steps:
+      - input: 42
+        function: "make_int_value"
+        expected:
+          result: "value_int_42"
+
+  - name: "文字列Value作成"
+    description: "文字列型のValueを作成できる"
+    steps:
+      - input: "hello"
+        function: "make_string_value"
+        expected:
+          result: "value_string_hello"
+
+  - name: "シンボルValue作成"
+    description: "シンボル型のValueを作成できる"
+    steps:
+      - input: "symbol_name"
+        function: "make_symbol_value"
+        expected:
+          result: "value_symbol_name"
+
+  - name: "ConsValue作成"
+    description: "Cons型のValueを作成できる"
+    steps:
+      - input: {"car": "int_1", "cdr": "int_2"}
+        function: "make_cons_value"
+        expected:
+          result: "value_cons"
+
+  - name: "Nil値の参照"
+    description: "nil定数を参照できる"
+    steps:
+      - input: null
+        function: "get_nil_value"
+        expected:
+          result: "value_nil"
+          kind: "VALUE_NIL"
+
+  - name: "真偽値の参照"
+    description: "true/false定数を参照できる"
+    steps:
+      - input: null
+        function: "get_true_value"
+        expected:
+          result: "value_true"
+          kind: "VALUE_BOOL"
+      - input: null
+        function: "get_false_value"
+        expected:
+          result: "value_false"
+          kind: "VALUE_BOOL"
+
+  - name: "Valueの型チェック"
+    description: "作成したValueの型が正しく設定されている"
+    steps:
+      - input: 123
+        function: "make_int_value"
+        expected:
+          result: "not_null"
+          kind: "VALUE_INT"
+          value: 123
+      - input: "test_string"
+        function: "make_string_value"
+        expected:
+          result: "not_null"
+          kind: "VALUE_STRING"
+          text: "test_string"
+          length: 11
+
+  - name: "メモリ枯渇時のエラーハンドリング"
+    description: "ヒープが枯渇した時に適切にNULLを返す"
+    steps:
+      - input: 1024  # LISP_HEAP_SIZE個確保
+        function: "allocate_all_values"
+        expected:
+          result: "success"
+      - input: null
+        function: "make_int_value"
+        expected:
+          result: "null"  # 追加の確保は失敗
+
+  - name: "文字列の深いコピー"
+    description: "文字列は元の文字列とは独立したコピーを持つ"
+    steps:
+      - input: "original"
+        function: "make_string_value"
+        expected:
+          result: "not_null"
+      - input: "modified_original"
+        function: "modify_source_string"
+        expected:
+          result: "string_unchanged"  # Valueの文字列は変更されない
+
+  - name: "シンボルの一意性"
+    description: "同じ名前のシンボルでも独立したメモリを持つ"
+    steps:
+      - input: "same_symbol"
+        function: "make_symbol_value"
+        expected:
+          result: "not_null"
+      - input: "same_symbol"
+        function: "make_symbol_value"
+        expected:
+          result: "not_null"
+          different_pointers: true
+
+  - name: "Consセルのネスト"
+    description: "Consセルをネストして複雑な構造を作成できる"
+    steps:
+      - input: {"car": {"type": "int", "value": 1}, "cdr": {"type": "int", "value": 2}}
+        function: "make_nested_cons"
+        expected:
+          result: "not_null"
+          car_type: "VALUE_INT"
+          cdr_type: "VALUE_INT"
+
+  - name: "Value解放後の再利用確認"
+    description: "解放されたValueが確実に再利用される"
+    steps:
+      - input: 5
+        function: "allocate_and_free_cycle"
+        expected:
+          result: "all_reused"  # 全ての解放されたValueが再利用される
+
+#------------------------------------------
+# Unityフレームワーク使用テスト
+#------------------------------------------
+unity_tests:
+  description: "Unityフレームワークを使用したテストケース"
+  framework: "Unity Test Framework"
+  location: "lib/unity/src/"
+
+  basic_tests:
+    - test_lisp_heap_init
+    - test_basic_value_allocation
+    - test_multiple_value_allocation
+    - test_value_free_and_reuse
+    - test_heap_exhaustion
+    - test_make_int_value
+    - test_make_string_value
+    - test_make_symbol_value
+    - test_make_cons_value
+
+  extended_tests:
+    - test_nil_value_reference
+    - test_boolean_value_reference
+    - test_value_type_check
+    - test_memory_exhaustion_error_handling
+    - test_string_deep_copy
+    - test_symbol_uniqueness
+    - test_nested_cons_creation
+    - test_value_reuse_after_free
+
+  assertions_used:
+    - TEST_ASSERT_NOT_NULL: "ポインタがNULLでないことを確認"
+    - TEST_ASSERT_NULL: "ポインタがNULLであることを確認"
+    - TEST_ASSERT_EQUAL: "値の等価性を確認"
+    - TEST_ASSERT_EQUAL_PTR: "ポインタの等価性を確認"
+    - TEST_ASSERT_EQUAL_STRING: "文字列の等価性を確認"
+    - TEST_ASSERT_NOT_EQUAL: "値の非等価性を確認"
+    - TEST_ASSERT_TRUE: "真偽値の確認"
+    - TEST_PASS: "無条件成功"
+
+  execution:
+    compilation: "gcc with Unity framework linked"
+    results: "All tests passing with detailed Unity output"
+    coverage: "Basic and extended lisp_heap functionality"
